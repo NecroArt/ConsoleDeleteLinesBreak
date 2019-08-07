@@ -7,7 +7,6 @@
 package main;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -18,9 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalTime;
-import java.util.concurrent.TimeUnit;
-
-import javax.xml.transform.Templates;
+import java.util.Optional;
 
 import org.apache.commons.cli.*;
 
@@ -32,7 +29,7 @@ public class Main {
 	/*
 	 * "/" - Unix "\\" - Windows
 	 */
-	private static final String WINDWOS_OS_PATH_DELIMITER = "\\";
+	private static final String WINDOWS_OS_PATH_DELIMITER = "\\";
 	private static final String UNIX_OS_PATH_DELIMITER = "\\";
 	private static final boolean isDebug = true;
 	private static final boolean isDebugProcess = true;
@@ -60,6 +57,7 @@ public class Main {
 		Option rewriteIfExistsOption = new Option("r", "rewriteIfExists", false,
 				"If output file exists - then rewrite it");
 		rewriteIfExistsOption.setRequired(false);
+		
 		options.addOption(rewriteIfExistsOption);
 
 		CommandLineParser parser = new DefaultParser();
@@ -72,8 +70,10 @@ public class Main {
 			String inputFileName = cmd.getOptionValue("inputFile");
 			String outputFileName = cmd.getOptionValue("outputFile");
 			/* String modeValue = cmd.getOptionValue("mode"); */
-			boolean isRewriteIfExists = cmd.hasOption("rewriteIfExists");
-
+			boolean isRewriteIfExists = cmd.hasOption("rewriteIfExists"); 
+			//boolean isRewriteIfExists = Optional.ofNullable(cmd.hasOption("rewriteIfExists")).orElse(false);
+			
+			
 			if (isDebug) {
 				/** debug */
 				System.out.println(inputFileName);
@@ -121,30 +121,35 @@ public class Main {
 			 *//** debug *//*
 							 * }
 							 */
-
+			
 			/*
 			 * Проверим, что начальный и конечный файлы не совпадают. Необходимо также
 			 * проверить возможность ссылки - когда путь является ссылкой, а не явным путём.
 			 */
-			if (inputFileName == outputFileName) {
-				System.out.println(
-						"Input file name specified and output file name are the same. Need omit ouptutFileName to rewrite original file.");
+			if (outputFileName != null && new File(inputFileName).toPath().toRealPath().equals(new File(outputFileName).toPath().toRealPath()))
+			{
+				System.out.println("Input file name specified and output file name are the same. Need omit ouptutFileName to rewrite original file.");
 				System.exit(6);
 			}
+			
 			/*
-			 * Проверим, что целевой указанный файл не существует, либо указан флаг
-			 * перезаписи "rewriteIfExists"
+			 * Проверим, что целевой указанный файл не существует, либо указан флаг перезаписи "rewriteIfExists"
 			 */
-			if (new File(outputFileName).exists() && !isRewriteIfExists) {
+			if (outputFileName != null && new File(outputFileName).exists() && !isRewriteIfExists)
+			{
 				System.out.println(
 						"Output file exists already and rewriteIfExists option is not present. Specify not existing file name or -rewriteIfExists flag.");
 				System.exit(7);
 			}
+
 			/*
 			 * Если выходной файл не задан, то целимся в исходный файл.
+			 * Установим флаг перезаписи, раз явно нужно перезаписать исходный файл
 			 */
-			if (outputFileName == null) {
+			if (outputFileName == null)
+			{
 				outputFileName = inputFileName;
+				isRewriteIfExists = true;
 			}
 
 			/*
@@ -163,8 +168,9 @@ public class Main {
 			 * путь к корню диска, на который нужно писать файл.
 			 */
 			String OSpathDelimeter = null;
-			if (System.getProperty("os.name").matches("Windows")) {
-				OSpathDelimeter = WINDWOS_OS_PATH_DELIMITER;
+			if (System.getProperty("os.name").matches("Windows"))
+			{
+				OSpathDelimeter = WINDOWS_OS_PATH_DELIMITER;
 			} else {
 				OSpathDelimeter = UNIX_OS_PATH_DELIMITER;
 			}
@@ -172,10 +178,10 @@ public class Main {
 			/*
 			 * Возьмём количество байт, свободных в корне.
 			 */
-			long outputFilePathFreeSpace = (new File(
-					outputFileName.substring(0, outputFileName.indexOf(OSpathDelimeter)))).getFreeSpace();
+			long outputFilePathFreeSpace = (new File(outputFileName.substring(0, outputFileName.indexOf(OSpathDelimeter)))).getFreeSpace();
 
-			if (isDebug) {
+			if (isDebug)
+			{
 				/** debug */
 				System.out.println("getFreeSpace = " + outputFilePathFreeSpace);
 				System.out.println("getFreeSpace/1024/1024 = " + outputFilePathFreeSpace / 1024 / 1024);
@@ -199,12 +205,21 @@ public class Main {
 				processFile(inputFileName, outputFileName, /*mode, */isRewriteIfExists);
 			}
 
-		} catch (ParseException e) {
+		}
+		catch (ParseException e)
+		{
 			System.out.println(e.getMessage());
 			formatter.printHelp("utility-name", options);
 
 			System.exit(8);
-		} catch (Exception e) {
+		}
+		catch (IOException e)
+		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		catch (Exception e)
+		{
 			e.printStackTrace();
 			System.exit(9);
 		}
